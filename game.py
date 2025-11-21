@@ -3,12 +3,6 @@ import cv2
 from gesture_detector import GestureDetector
 from abc import ABC, abstractmethod
 from menu_classes import Button, Selector, Slider
-# ---------------------
-# SISTEMA DE DETECCIÓN DE GESTOS
-# ---------------------
-
-
-
 
 # ---------------------
 # CLASE BASE STATE
@@ -165,35 +159,45 @@ class PlayingState(State):
         
         # Control por gestos
         if self.game.gestos_activos:
-            resultado = self.game.gesture_detector.actualizar()
+            resultado = self.game.gesture_detector.actualizar(dt)
             if resultado:
-                gesto = self.game.gesture_detector.ultimo_gesto
-                pos_norm = self.game.gesture_detector.posicion_mano
+                gesto_confirmado = self.game.gesture_detector.gesto_confirmado
                 
                 # Mover el círculo con la posición de la mano
-                if gesto == "ABIERTA":
+                if gesto_confirmado == "ABIERTA":
+                    detector = self.game.gesture_detector
+                    # Escalar velocidad (multiplicador para ajustar sensibilidad)
+                    multiplicador_velocidad = 5000
+
+                    vel_x = detector.velocidad_mano[0] * multiplicador_velocidad * dt
+                    vel_y = detector.velocidad_mano[1] * multiplicador_velocidad * dt
+
+                    self.pos[0] += -vel_x
+                    self.pos[1] += vel_y
+
+                    # Mantener dentro de los límites de la pantalla
                     ancho = self.game.pantalla.get_width()
                     alto = self.game.pantalla.get_height()
-                    self.pos[0] = -pos_norm[0] * ancho
-                    self.pos[1] = pos_norm[1] * alto
+                    self.pos[0] = max(20, min(self.pos[0], ancho - 20))
+                    self.pos[1] = max(20, min(self.pos[1], alto - 20))
                 
                 # Cambiar color según el gesto
-                if gesto != self.gesto_anterior:
-                    if gesto == "PAZ":
+                if gesto_confirmado != self.gesto_anterior:
+                    if gesto_confirmado == "PAZ":
                         self.color = (0, 255, 0)
                         self.puntos += 1
-                    elif gesto == "ROCK":
+                    elif gesto_confirmado == "ROCK":
                         self.color = (255, 0, 255)
                         self.puntos += 1
-                    elif gesto == "SHAKA":
+                    elif gesto_confirmado == "SHAKA":
                         self.color = (0, 255, 255)
                         self.puntos += 1
-                    elif gesto == "PUÑO":
+                    elif gesto_confirmado == "PUÑO":
                         self.color = (255, 0, 0)
-                    elif gesto == "ABIERTA":
+                    elif gesto_confirmado == "ABIERTA":
                         self.color = (255, 200, 0)
                         
-                    self.gesto_anterior = gesto
+                    self.gesto_anterior = gesto_confirmado
                     
     def draw(self, pantalla):
         pantalla.fill((50, 80, 50))
@@ -205,7 +209,7 @@ class PlayingState(State):
         y_offset = 10
         controles = "WASD mover | ESC pausa"
         if self.game.gestos_activos:
-            gesto = self.game.gesture_detector.ultimo_gesto
+            gesto = self.game.gesture_detector.gesto_confirmado
             controles = f"Gesto: {gesto} | ESC pausa"
             
         texto = self.game.fuente_chica.render(controles, True, (255, 255, 255))

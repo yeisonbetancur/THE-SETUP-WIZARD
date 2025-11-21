@@ -5,18 +5,21 @@ import cv2
 
 
 class GestureDetector:
-    def __init__(self, tiempo_confirmacion=2):
+    def __init__(self, tiempo_confirmacion=0.8):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             max_num_hands=1,
             min_detection_confidence=0.6,
             min_tracking_confidence=0.6
         )
+        
         self.mp_draw = mp.solutions.drawing_utils
         self.cap = None
         self.ultimo_gesto = "NINGUNO"
         self.gesto_confirmado = "NINGUNO"
         self.posicion_mano = (0, 0)  # Posición normalizada (0-1)
+        self.posicion_anterior = None  # Nueva variable
+        self.velocidad_mano = (0, 0)  # Nueva variable
         self.activo = False
         
         # Sistema de confirmación de gestos
@@ -92,7 +95,7 @@ class GestureDetector:
                 if self.tiempo_mantenido >= self.tiempo_confirmacion:
                     if self.gesto_confirmado != gesto_detectado:
                         self.gesto_confirmado = gesto_detectado
-                        print(f"✓ Gesto confirmado: {self.gesto_confirmado}")
+                        print(f"✓ Gesto confirmado: {self.gesto_confirmado}, tiempo mantenido: {self.tiempo_mantenido}")
             else:
                 # Cambió de gesto, reiniciar contador
                 self.gesto_actual = gesto_detectado
@@ -103,7 +106,18 @@ class GestureDetector:
             
             # Obtener posición de la palma (landmark 9)
             palma = landmarks[9]
-            self.posicion_mano = (palma.x, palma.y)
+            nueva_posicion = (palma.x, palma.y)
+
+            # Calcular velocidad
+            if self.posicion_anterior is not None:
+                delta_x = nueva_posicion[0] - self.posicion_anterior[0]
+                delta_y = nueva_posicion[1] - self.posicion_anterior[1]
+                self.velocidad_mano = (delta_x, delta_y)
+            else:
+                self.velocidad_mano = (0, 0)
+
+            self.posicion_mano = nueva_posicion
+            self.posicion_anterior = nueva_posicion
             
             return frame, hand_landmarks
         else:
