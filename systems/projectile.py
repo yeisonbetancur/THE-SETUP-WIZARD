@@ -39,6 +39,22 @@ class Projectile:
     def __init__(self):
         self.state = ProjectileState()
         self.rect = pygame.Rect(0, 0, 20, 20)  # Colisión básica
+        self.sprite = None  # ← AGREGAR
+
+
+    def _load_sprite(self, spell_type: SpellType):
+        """Carga el sprite del proyectil según el tipo de hechizo"""
+        try:
+            # Buscar archivo de sprite
+            sprite_path = f"assets/sprites/spells/{spell_type.name.lower()}.png"
+            self.sprite = pygame.image.load(sprite_path).convert_alpha()
+            
+            # Escalar según tamaño del hechizo
+            size = self.state.spell_data.tamaño * 2
+            self.sprite = pygame.transform.scale(self.sprite, (size, size))
+        except:
+            # Si no existe sprite, usar None (gráfico procedimental)
+            self.sprite = None
         
     def activate(self, spell_type: SpellType, start_x: float, start_y: float, 
                  trajectory: TrajectoryType):
@@ -50,6 +66,7 @@ class Projectile:
         self.state.y = start_y
         self.state.lifetime = 0.0
         self.state.enemigos_atravesados = 0
+        self._load_sprite(spell_type)
         
         # Configurar velocidad según trayectoria
         self._setup_trajectory()
@@ -162,12 +179,16 @@ class Projectile:
         if not self.state.active:
             return
         
-        # Dibujar círculo con color del hechizo
-        color = self.state.spell_data.color_primario
-        radius = self.state.spell_data.tamaño
-        pygame.draw.circle(screen, color, (int(self.state.x), int(self.state.y)), radius)
-        
-        # Si tiene color secundario, dibujar un círculo interno
+        if self.sprite:
+            # Usar sprite
+            rect = self.sprite.get_rect(center=(int(self.state.x), int(self.state.y)))
+            screen.blit(self.sprite, rect)
+        else:
+            # Fallback: gráfico procedimental (código actual)
+            color = self.state.spell_data.color_primario
+            radius = self.state.spell_data.tamaño
+            pygame.draw.circle(screen, color, (int(self.state.x), int(self.state.y)), radius)
+            
         if self.state.spell_data.color_secundario:
             inner_radius = max(1, radius // 2)
             pygame.draw.circle(screen, self.state.spell_data.color_secundario, 

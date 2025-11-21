@@ -8,7 +8,7 @@ from states import OptionsState, MenuState, PlayingState, PauseState
 class Game:
     def __init__(self):
         pygame.init()
-        self.pantalla = pygame.display.set_mode((800, 600))
+        self.pantalla = pygame.display.set_mode((1280, 720))
         pygame.display.set_caption("State Pattern con Gestos")
         self.clock = pygame.time.Clock()
         self.corriendo = True

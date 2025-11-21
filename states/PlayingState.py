@@ -5,6 +5,7 @@ from config.enums import Element
 from systems.spell_system import SpellSystem
 from systems.circle import CircleManager
 from systems.spell_creator import SpellCastingSystem
+from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
 
 
 class PlayingState(State):
@@ -162,11 +163,17 @@ class PlayingState(State):
         # Dibujar círculos mágicos
         self.spell_casting.draw(pantalla)
         
-        # Dibujar jugador (círculo estático en esquina inferior izquierda)
-        pygame.draw.circle(pantalla, (100, 200, 255), 
-                          (int(self.player_x), int(self.player_y)), 25)
-        pygame.draw.circle(pantalla, (255, 255, 255), 
-                          (int(self.player_x), int(self.player_y)), 25, 3)
+        # Dibujar jugador
+        if self.player_sprite:
+            # Usar sprite
+            rect = self.player_sprite.get_rect(center=(int(self.player_x), int(self.player_y)))
+            pantalla.blit(self.player_sprite, rect)
+        else:
+            # Fallback: círculo
+            pygame.draw.circle(pantalla, (100, 200, 255), 
+                              (int(self.player_x), int(self.player_y)), 25)
+            pygame.draw.circle(pantalla, (255, 255, 255), 
+                              (int(self.player_x), int(self.player_y)), 25, 3)
         
         # Dibujar UI
         self._draw_ui(pantalla)

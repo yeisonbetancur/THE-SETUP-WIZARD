@@ -31,6 +31,8 @@ class AreaEffect:
     def __init__(self):
         self.state = AreaEffectState()
         self.rect = pygame.Rect(0, 0, 100, 100)  # Área de efecto
+        self.sprite = None  # ← AGREGAR
+
         
     def activate(self, spell_type: SpellType, center_x: float, center_y: float):
         """Activa el efecto de área en una posición específica"""
@@ -41,11 +43,26 @@ class AreaEffect:
         self.state.lifetime = 0.0
         self.state.tick_timer = 0.0
         self.state.affected_enemies.clear()
+        self._load_sprite(spell_type)
+
         
         # Configurar área de efecto según radio
         radius = self.state.spell_data.efecto_params.get("radio", 50)
         self._update_rect(radius)
-        
+    
+    def _load_sprite(self, spell_type: SpellType):
+        """Carga el sprite del efecto de área"""
+        try:
+            sprite_path = f"assets/sprites/areas/{spell_type.name.lower()}.png"
+            self.sprite = pygame.image.load(sprite_path).convert_alpha()
+
+            # Escalar según radio
+            radius = self.get_radius()
+            size = int(radius * 2)
+            self.sprite = pygame.transform.scale(self.sprite, (size, size))
+        except:
+            self.sprite = None
+
     def _update_rect(self, radius: float):
         """Actualiza el rectángulo de colisión del área"""
         size = int(radius * 2)
@@ -141,33 +158,46 @@ class AreaEffect:
             return
         
         radius = self.get_radius()
-        
-        # Calcular alpha para efecto de parpadeo/fade
         alpha = self._calculate_alpha()
         
-        # Crear superficie temporal con transparencia
-        surf = pygame.Surface((int(radius * 2), int(radius * 2)), pygame.SRCALPHA)
+        if self.sprite:
+            # Usar sprite con alpha
+            sprite_copy = self.sprite.copy()
+            sprite_copy.set_alpha(alpha)
+            rect = sprite_copy.get_rect(center=(int(self.state.x), int(self.state.y)))
+            screen.blit(sprite_copy, rect)
+        else:
+            if not self.state.active:
+                return
+            
+            radius = self.get_radius()
+            
+            # Calcular alpha para efecto de parpadeo/fade
+            alpha = self._calculate_alpha()
+            
+            # Crear superficie temporal con transparencia
+            surf = pygame.Surface((int(radius * 2), int(radius * 2)), pygame.SRCALPHA)
+            
+            # Dibujar círculo con color primario
+            color_with_alpha = (*self.state.spell_data.color_primario, alpha)
+            pygame.draw.circle(surf, color_with_alpha, 
+                              (int(radius), int(radius)), int(radius))
+            
+            # Si tiene color secundario, dibujar círculo interno
+            if self.state.spell_data.color_secundario:
+                inner_radius = max(1, int(radius * 0.6))
+                inner_alpha = min(255, int(alpha * 1.3))
+                inner_color = (*self.state.spell_data.color_secundario, inner_alpha)
+                pygame.draw.circle(surf, inner_color, 
+                                 (int(radius), int(radius)), inner_radius)
+            
+            # Blit en posición correcta
+            screen.blit(surf, (int(self.state.x - radius), int(self.state.y - radius)))
+            
+            # DEBUG: Dibujar borde del área de efecto
+            # pygame.draw.circle(screen, (255, 255, 0), 
+            #                   (int(self.state.x), int(self.state.y)), int(radius), 2)
         
-        # Dibujar círculo con color primario
-        color_with_alpha = (*self.state.spell_data.color_primario, alpha)
-        pygame.draw.circle(surf, color_with_alpha, 
-                          (int(radius), int(radius)), int(radius))
-        
-        # Si tiene color secundario, dibujar círculo interno
-        if self.state.spell_data.color_secundario:
-            inner_radius = max(1, int(radius * 0.6))
-            inner_alpha = min(255, int(alpha * 1.3))
-            inner_color = (*self.state.spell_data.color_secundario, inner_alpha)
-            pygame.draw.circle(surf, inner_color, 
-                             (int(radius), int(radius)), inner_radius)
-        
-        # Blit en posición correcta
-        screen.blit(surf, (int(self.state.x - radius), int(self.state.y - radius)))
-        
-        # DEBUG: Dibujar borde del área de efecto
-        # pygame.draw.circle(screen, (255, 255, 0), 
-        #                   (int(self.state.x), int(self.state.y)), int(radius), 2)
-    
     def _calculate_alpha(self) -> int:
         """Calcula el alpha para efecto visual"""
         duracion = self.state.spell_data.efecto_params.get("duracion", 
