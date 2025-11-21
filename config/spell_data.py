@@ -1,10 +1,10 @@
 from typing import Dict, Any, Tuple
 
-from enums import BehaviorType
-from enums import EffectType
-from enums import SpellType
-from enums import Element
-from dataclass import SpellData
+from config.enums import BehaviorType
+from config.enums import EffectType
+from config.enums import SpellType
+from config.enums import Element
+from config.dataclass import SpellData
 
 SPELL_DATABASE: Dict[SpellType, SpellData] = {
     # ==================
@@ -170,14 +170,14 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         nombre="Tormenta de Hielo",
         color_primario=(150, 220, 255),
         color_secundario=(100, 180, 255),
-        velocidad=350,
+        velocidad=1000,
         daño=8,
-        tamaño=8,
+        tamaño=20,
         comportamiento=BehaviorType.PROYECTIL_MULTIPLE,
         efecto=EffectType.FREEZE,
         efecto_params={
-            "num_proyectiles": 5,      # Dispara 5 proyectiles
-            "spread_angulo": 30,       # Ángulo de dispersión
+            "num_proyectiles": 8,      # Dispara 5 proyectiles
+            "spread_angulo": 85,       # Ángulo de dispersión
             "duracion_congelacion": 2.0
         }
     ),

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, Tuple
-from enums import BehaviorType
-from enums import EffectType
+from config.enums import BehaviorType
+from config.enums import EffectType
 
 
 @dataclass
