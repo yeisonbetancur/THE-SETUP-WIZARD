@@ -1,10 +1,7 @@
 import pygame
 import cv2
 from systems.gesture_detector import GestureDetector
-from states.OptionsState import OptionsState
-from states.MenuState import MenuState
-from states.PlayingState import PlayingState
-from states.PauseState import PauseState
+from states import OptionsState, MenuState, PlayingState, PauseState
 
 
 

@@ -1,4 +1,4 @@
-from State import State
+from states.State import State
 import pygame
 
 class PlayingState(State):

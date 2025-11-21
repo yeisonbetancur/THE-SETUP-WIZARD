@@ -1,5 +1,5 @@
 from ui.menu_classes import Slider, Selector, Button
-from State import State
+from states.State import State
 import pygame
 
 class OptionsState(State):

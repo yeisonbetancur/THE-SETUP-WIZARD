@@ -1,4 +1,4 @@
-from State import State
+from states.State import State
 from ui.menu_classes import Button
 import pygame
 
