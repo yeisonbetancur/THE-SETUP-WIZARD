@@ -65,6 +65,8 @@ class GestureDetector:
             return "ROCK"
         if pulgar and men and not ind and not med and not anu:
             return "SHAKA"
+        if pulgar and not men and not ind and not med and not anu:
+            return "THUMBS_UP"
         return "DESCONOCIDO"
     
     def actualizar(self, dt=0.016):

@@ -1,12 +1,10 @@
 from states.State import State
 import pygame
-
 from config.enums import Element
 from systems.spell_system import SpellSystem
 from systems.circle import CircleManager
 from systems.spell_creator import SpellCastingSystem
 from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
-
 
 class PlayingState(State):
     def __init__(self, game):
@@ -36,14 +34,8 @@ class PlayingState(State):
         self.player_y = 650
         self.player_hp = 3
         
-        # Cargar sprite del jugador
-        try:
-            self.player_sprite = pygame.image.load("assets/sprites/player.png").convert_alpha()
-            # Escalar si es necesario
-            self.player_sprite = pygame.transform.scale(self.player_sprite, (50, 50))
-        except:
-            print("WARNING: No se pudo cargar sprite del jugador, usando círculo")
-            self.player_sprite = None
+        # Cargar animaciones del jugador
+        self._load_player_animations()
         
         # Sistemas de hechizos
         self.spell_system = SpellSystem(projectile_pool_size=50, area_pool_size=30)
@@ -58,7 +50,88 @@ class PlayingState(State):
         self.gesto_anterior = "NINGUNO"
         self.oleada_actual = 1
         
-        # DEBUG: Enemigos temporales (hasta que implementes el sistema completo)
+        # Estado de animación
+        self.ultimo_elemento_lanzado = None
+    
+    def _load_player_animations(self):
+        """Carga todas las animaciones del jugador"""
+        self.player_anim = AnimationController()
+        player_size = (50, 50)
+        
+        try:
+            # === ANIMACIÓN IDLE (2 frames, loop) ===
+            idle_frames = load_animation_frames(
+                "assets/sprites/player",
+                "idle_",
+                num_frames=2,
+                scale=player_size
+            )
+            idle_anim = Animation(idle_frames, frame_duration=0.5, loop=True)
+            self.player_anim.add_animation("idle", idle_anim)
+            
+            # === ANIMACIONES DE ATAQUE (1 frame cada una, no loop) ===
+            elementos = ["fuego", "hielo", "rayo", "tierra", "agua", "neutral"]
+            
+            for elemento in elementos:
+                try:
+                    # Cargar el frame único de ataque
+                    frame_path = f"assets/sprites/player/{elemento}.png"
+                    frame = pygame.image.load(frame_path).convert_alpha()
+                    frame = pygame.transform.scale(frame, player_size)
+                    
+                    # Crear animación con el frame repetido (para sostenerlo)
+                    # Lo repetimos para que dure más tiempo
+                    attack_frames = [frame] * 3  # Mantener el frame 3 veces
+                    attack_anim = Animation(attack_frames, frame_duration=0.1, loop=False)
+                    
+                    self.player_anim.add_animation(f"cast_{elemento}", attack_anim)
+                    
+                except Exception as e:
+                    print(f"WARNING: No se pudo cargar sprite de ataque {elemento}: {e}")
+                    # Crear placeholder para este elemento
+                    colors = {
+                        "fuego": (255, 100, 50),
+                        "hielo": (100, 200, 255),
+                        "rayo": (255, 255, 100),
+                        "tierra": (139, 90, 43),
+                        "agua": (50, 100, 255),
+                        "neutral": (200, 200, 200)
+                    }
+                    color = colors.get(elemento, (200, 200, 200))
+                    placeholder_frames = create_placeholder_frames(3, player_size, color)
+                    attack_anim = Animation(placeholder_frames, frame_duration=0.1, loop=False)
+                    self.player_anim.add_animation(f"cast_{elemento}", attack_anim)
+            
+            print("✓ Animaciones del jugador cargadas correctamente")
+            
+        except Exception as e:
+            print(f"ERROR: No se pudieron cargar animaciones del jugador: {e}")
+            # Fallback completo: crear placeholders para todo
+            idle_frames = create_placeholder_frames(2, player_size, (100, 200, 255))
+            idle_anim = Animation(idle_frames, frame_duration=0.5, loop=True)
+            self.player_anim.add_animation("idle", idle_anim)
+            
+            # Crear animaciones de ataque placeholder
+            for elemento in ["fuego", "hielo", "rayo", "tierra", "agua", "neutral"]:
+                frames = create_placeholder_frames(3, player_size, (255, 100, 100))
+                anim = Animation(frames, frame_duration=0.1, loop=False)
+                self.player_anim.add_animation(f"cast_{elemento}", anim)
+    
+    def _play_cast_animation(self, elemento: Element):
+        """Reproduce la animación de lanzar hechizo según el elemento"""
+        # Mapeo de Element enum a nombre de animación
+        element_to_anim = {
+            Element.FUEGO: "cast_fuego",
+            Element.HIELO: "cast_hielo",
+            Element.RAYO: "cast_rayo",
+            Element.TIERRA: "cast_tierra",
+            Element.AGUA: "cast_agua",
+            Element.NEUTRAL: "cast_neutral"
+        }
+        
+        anim_name = element_to_anim.get(elemento, "cast_neutral")
+        self.player_anim.play(anim_name, reset=True)
+        self.ultimo_elemento_lanzado = elemento
             
     def exit(self):
         print("Saliendo de partida")
@@ -90,6 +163,15 @@ class PlayingState(State):
                     self._lanzar_hechizo()
                     
     def update(self, dt):
+        # Actualizar animación del jugador
+        self.player_anim.update(dt)
+        
+        # Volver a idle cuando termine la animación de cast
+        current_anim = self.player_anim.get_current_animation_name()
+        if current_anim and current_anim.startswith("cast_"):
+            if self.player_anim.current_animation.is_finished():
+                self.player_anim.play("idle")
+        
         # Actualizar sistemas de hechizos
         self.spell_casting.update(dt)
         self.spell_system.update(dt)
@@ -145,6 +227,17 @@ class PlayingState(State):
     
     def _lanzar_hechizo(self):
         """Intenta lanzar un hechizo"""
+        # Obtener el spell_type que se va a lanzar
+        spell_info = self.spell_casting.get_next_spell_info()
+        
+        if spell_info:
+            # Determinar el elemento principal para la animación
+            elemento_anim = self._get_animation_element(spell_info)
+            
+            # Reproducir animación de cast
+            self._play_cast_animation(elemento_anim)
+        
+        # Intentar lanzar el hechizo
         success = self.spell_casting.cast_spell(self.player_x, self.player_y)
         
         if success:
@@ -153,6 +246,36 @@ class PlayingState(State):
         else:
             # Cooldown activo
             print("Cooldown activo, espera un momento")
+    
+    def _get_animation_element(self, spell_info):
+        """
+        Determina qué animación de elemento usar según el hechizo.
+        Para combos, usa el primer elemento.
+        """
+        from config.enums import SpellType
+        
+        spell_type = spell_info["spell_type"]
+        elements = spell_info.get("elements", [])
+        
+        # Si es un hechizo básico, usar su elemento correspondiente
+        basic_spells = {
+            SpellType.FUEGO: Element.FUEGO,
+            SpellType.HIELO: Element.HIELO,
+            SpellType.RAYO: Element.RAYO,
+            SpellType.TIERRA: Element.TIERRA,
+            SpellType.AGUA: Element.AGUA,
+            SpellType.NEUTRAL: Element.NEUTRAL
+        }
+        
+        if spell_type in basic_spells:
+            return basic_spells[spell_type]
+        
+        # Si es un combo, usar el primer elemento
+        if elements:
+            return elements[0]
+        
+        # Fallback
+        return Element.NEUTRAL
     
     def draw(self, pantalla):
         pantalla.fill((30, 40, 60))  # Fondo oscuro
@@ -163,13 +286,13 @@ class PlayingState(State):
         # Dibujar círculos mágicos
         self.spell_casting.draw(pantalla)
         
-        # Dibujar jugador
-        if self.player_sprite:
-            # Usar sprite
-            rect = self.player_sprite.get_rect(center=(int(self.player_x), int(self.player_y)))
-            pantalla.blit(self.player_sprite, rect)
+        # Dibujar jugador con animación
+        frame = self.player_anim.get_current_frame()
+        if frame:
+            rect = frame.get_rect(center=(int(self.player_x), int(self.player_y)))
+            pantalla.blit(frame, rect)
         else:
-            # Fallback: círculo
+            # Fallback extremo: círculo simple
             pygame.draw.circle(pantalla, (100, 200, 255), 
                               (int(self.player_x), int(self.player_y)), 25)
             pygame.draw.circle(pantalla, (255, 255, 255), 

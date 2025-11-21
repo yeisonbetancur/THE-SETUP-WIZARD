@@ -199,6 +199,34 @@ class SpellCastingSystem:
         self.circle_manager.clear_all()
         self.spell_creator.reset_cooldown()
 
+    def get_next_spell_info(self) -> Optional[dict]:
+        """
+        Retorna información sobre el próximo hechizo que se lanzará.
+        Útil para mostrar preview o reproducir animaciones antes de lanzar.
+        
+        Returns:
+            Dict con información del hechizo o None si no se puede lanzar
+            {
+                "spell_type": SpellType,
+                "elements": List[Element],  # Elementos usados
+                "num_elements": int
+            }
+        """
+        # Obtener elementos activos
+        active_elements = self.circle_manager.get_active_elements()
+        
+        # Determinar qué hechizo se lanzaría
+        spell_type = self.spell_creator.determine_spell(active_elements)
+        
+        if not spell_type:
+            return None
+        
+        return {
+            "spell_type": spell_type,
+            "elements": active_elements,
+            "num_elements": len(active_elements)
+        }
+
 
 # ======================
 # EJEMPLO DE USO COMPLETO

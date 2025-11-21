@@ -185,6 +185,7 @@ class SpellSystem:
             "projectiles": self.projectile_pool.get_stats(),
             "area_effects": self.area_pool.get_stats()
         }
+    
 
 
 # ======================

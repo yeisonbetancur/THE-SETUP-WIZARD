@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from config.enums import SpellType, TrajectoryType, BehaviorType
 from config.spell_data import get_spell_data, SpellData
+from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
 
 
 @dataclass
@@ -24,7 +25,7 @@ class ProjectileState:
 class Projectile:
     """
     Proyectil que viaja por la pantalla.
-    Soporta 3 tipos de trayectorias y diferentes comportamientos.
+    Soporta 3 tipos de trayectorias, diferentes comportamientos y animaciones de sprites.
     """
     
     # Constantes de pantalla
@@ -36,26 +37,58 @@ class Projectile:
     AEREA_ANGLE = 45  # Ángulo inicial para trayectoria aérea (grados)
     BAJA_Y_OFFSET = 50  # Offset desde el suelo para trayectoria baja
     
+    # Constantes de animación
+    ANIMATION_FRAMES = 3  # Número de frames por animación
+    ANIMATION_FRAME_DURATION = 0.1  # Duración de cada frame en segundos
+    
     def __init__(self):
         self.state = ProjectileState()
         self.rect = pygame.Rect(0, 0, 20, 20)  # Colisión básica
-        self.sprite = None  # ← AGREGAR
-
-
-    def _load_sprite(self, spell_type: SpellType):
-        """Carga el sprite del proyectil según el tipo de hechizo"""
-        try:
-            # Buscar archivo de sprite
-            sprite_path = f"assets/sprites/spells/{spell_type.name.lower()}.png"
-            self.sprite = pygame.image.load(sprite_path).convert_alpha()
-            
-            # Escalar según tamaño del hechizo
-            size = self.state.spell_data.tamaño * 2
-            self.sprite = pygame.transform.scale(self.sprite, (size, size))
-        except:
-            # Si no existe sprite, usar None (gráfico procedimental)
-            self.sprite = None
+        self.anim_controller = None  # Se crea al activar el proyectil
+        self.use_animation = False  # Flag para saber si tiene animación o fallback
         
+    def _load_animation(self, spell_type: SpellType):
+        """Carga la animación del proyectil según el tipo de hechizo"""
+        try:
+            # Intentar cargar frames desde carpeta del hechizo
+            spell_name = spell_type.name.lower()
+            folder_path = f"assets/sprites/spells/{spell_name}"
+            
+            # Verificar que al menos existe el primer frame
+            first_frame_path = f"{folder_path}/frame_0.png"
+            
+            # Intentar cargar el primer frame como prueba
+            test_frame = pygame.image.load(first_frame_path).convert_alpha()
+            
+            # Si llegamos aquí, el archivo existe
+            frames = load_animation_frames(
+                folder_path,
+                "frame_",
+                num_frames=self.ANIMATION_FRAMES,
+                scale=(self.state.spell_data.tamaño * 2, self.state.spell_data.tamaño * 2)
+            )
+            
+            # Crear animación
+            anim = Animation(
+                frames, 
+                frame_duration=self.ANIMATION_FRAME_DURATION, 
+                loop=True
+            )
+            
+            # Crear controller y agregar animación
+            self.anim_controller = AnimationController()
+            self.anim_controller.add_animation("idle", anim)
+            self.anim_controller.play("idle")
+            
+            self.use_animation = True
+            print(f"✓ Animación cargada para {spell_name}")
+            
+        except (FileNotFoundError, pygame.error) as e:
+            # Fallback: usar gráficos procedurales
+            print(f"⚠ No se encontraron sprites para {spell_type.name}, usando fallback: {e}")
+            self.anim_controller = None
+            self.use_animation = False
+    
     def activate(self, spell_type: SpellType, start_x: float, start_y: float, 
                  trajectory: TrajectoryType):
         """Activa el proyectil con un hechizo específico"""
@@ -66,7 +99,9 @@ class Projectile:
         self.state.y = start_y
         self.state.lifetime = 0.0
         self.state.enemigos_atravesados = 0
-        self._load_sprite(spell_type)
+        
+        # Cargar animación
+        self._load_animation(spell_type)
         
         # Configurar velocidad según trayectoria
         self._setup_trajectory()
@@ -108,6 +143,10 @@ class Projectile:
         self.state.lifetime += dt
         if self.state.lifetime > self.state.spell_data.duracion:
             return False
+        
+        # Actualizar animación si existe
+        if self.use_animation and self.anim_controller:
+            self.anim_controller.update(dt)
         
         # Aplicar física según trayectoria
         if self.state.trajectory_type == TrajectoryType.AEREA:
@@ -173,26 +212,56 @@ class Projectile:
         """Desactiva el proyectil para reutilizarlo"""
         self.state.active = False
         self.state.spell_data = None
+        self.anim_controller = None
+        self.use_animation = False
     
     def draw(self, screen: pygame.Surface):
         """Dibuja el proyectil en pantalla"""
         if not self.state.active:
             return
         
-        if self.sprite:
-            # Usar sprite
-            rect = self.sprite.get_rect(center=(int(self.state.x), int(self.state.y)))
-            screen.blit(self.sprite, rect)
+        if self.use_animation and self.anim_controller:
+            # Usar animación de sprites
+            frame = self.anim_controller.get_current_frame()
+            if frame:
+                rect = frame.get_rect(center=(int(self.state.x), int(self.state.y)))
+                screen.blit(frame, rect)
         else:
-            # Fallback: gráfico procedimental (código actual)
-            color = self.state.spell_data.color_primario
-            radius = self.state.spell_data.tamaño
-            pygame.draw.circle(screen, color, (int(self.state.x), int(self.state.y)), radius)
-            
+            # Fallback: gráficos procedurales (círculos de colores)
+            self._draw_procedural(screen)
+    
+    def _draw_procedural(self, screen: pygame.Surface):
+        """Dibuja el proyectil usando gráficos procedurales (fallback)"""
+        color = self.state.spell_data.color_primario
+        radius = self.state.spell_data.tamaño
+        
+        # Círculo principal
+        pygame.draw.circle(
+            screen, 
+            color, 
+            (int(self.state.x), int(self.state.y)), 
+            radius
+        )
+        
+        # Círculo interior (si hay color secundario)
         if self.state.spell_data.color_secundario:
             inner_radius = max(1, radius // 2)
-            pygame.draw.circle(screen, self.state.spell_data.color_secundario, 
-                             (int(self.state.x), int(self.state.y)), inner_radius)
+            pygame.draw.circle(
+                screen, 
+                self.state.spell_data.color_secundario, 
+                (int(self.state.x), int(self.state.y)), 
+                inner_radius
+            )
+        
+        # Brillo central (opcional, para más detalle)
+        highlight_radius = max(1, radius // 4)
+        highlight_color = tuple(min(255, c + 100) for c in color)
+        pygame.draw.circle(
+            screen,
+            highlight_color,
+            (int(self.state.x - radius // 3), int(self.state.y - radius // 3)),
+            highlight_radius
+        )
 
 
 class ProjectilePool:
@@ -260,3 +329,37 @@ class ProjectilePool:
             "active": len(self.active_projectiles),
             "available": len(self.pool) - len(self.active_projectiles)
         }
+
+
+# ======================
+# EJEMPLO DE USO
+# ======================
+
+"""
+# En PlayingState:
+
+from systems.projectile import ProjectilePool
+from config.enums import SpellType, TrajectoryType
+
+class PlayingState(State):
+    def enter(self):
+        self.projectile_pool = ProjectilePool(pool_size=50)
+    
+    def lanzar_hechizo(self, spell_type: SpellType, trajectory: TrajectoryType):
+        # Lanzar desde posición del jugador
+        player_x = 100
+        player_y = 300
+        
+        self.projectile_pool.spawn(spell_type, player_x, player_y, trajectory)
+    
+    def update(self, dt):
+        self.projectile_pool.update(dt)
+        
+        # Debug: ver cuántos proyectiles hay activos
+        stats = self.projectile_pool.get_stats()
+        print(f"Proyectiles: {stats['active']}/{stats['total']}")
+    
+    def draw(self, pantalla):
+        pantalla.fill((50, 80, 50))
+        self.projectile_pool.draw(pantalla)
+"""
