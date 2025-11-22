@@ -297,7 +297,7 @@ class ProjectilePool:
         # Buscar proyectil inactivo
         for projectile in self.pool:
             if not projectile.state.active:
-                projectile.activate(spell_type, start_x, start_y, trajectory)
+                projectile.activate(spell_type, start_x, start_y+25, trajectory)
                 self.active_projectiles.append(projectile)
                 return projectile
         

@@ -455,7 +455,7 @@ class EnemyManager:
     Gestiona el spawn, actualización y eliminación de enemigos.
     """
     
-    GROUND_Y = 650  # Altura del suelo
+    GROUND_Y = 675  # Altura del suelo
     AIR_Y = 400     # Altura de enemigos voladores
     
     def __init__(self):

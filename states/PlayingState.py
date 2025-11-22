@@ -40,6 +40,8 @@ class PlayingState(State):
         self.player_y = 640
         self.player_hp = 3
 
+        self.princess_x = 50
+        self.princess_y = 200
 
         try:
             self.background = pygame.image.load("assets/backgrounds/game_bg.png").convert()
@@ -54,6 +56,7 @@ class PlayingState(State):
         
         # Cargar animaciones del jugador
         self._load_player_animations()
+        self._load_princess_animation()
 
         #cargar los enemifgos
         
@@ -148,6 +151,23 @@ class PlayingState(State):
                 frames = create_placeholder_frames(3, player_size, (255, 100, 100))
                 anim = Animation(frames, frame_duration=0.1, loop=False)
                 self.player_anim.add_animation(f"cast_{elemento}", anim)
+
+    def _load_princess_animation(self):
+        self.princess_anim = AnimationController()
+        player_size = (100, 100)
+        try:
+            # === ANIMACIÓN IDLE (2 frames, loop) ===
+            idle_frames = load_animation_frames(
+                "assets/sprites/princess",
+                "idle_",
+                num_frames=2,
+                scale=player_size
+            )
+            idle_anim = Animation(idle_frames, frame_duration=3, loop=True)
+            self.princess_anim.add_animation("idle", idle_anim)
+        except Exception as e:
+            print(f"ERROR: No se pudieron cargar animaciones de la princesa: {e}")
+
     
     def _play_cast_animation(self, elemento: Element):
         """Reproduce la animación de lanzar hechizo según el elemento"""
@@ -203,6 +223,7 @@ class PlayingState(State):
     def update(self, dt):
         # Actualizar animación del jugador
         self.player_anim.update(dt)
+        self.princess_anim.update(dt)
         
         # Volver a idle cuando termine la animación de cast
         current_anim = self.player_anim.get_current_animation_name()
@@ -361,6 +382,17 @@ class PlayingState(State):
         
         # Dibujar círculos mágicos
         self.spell_casting.draw(pantalla)
+
+        frame = self.princess_anim.get_current_frame()
+        if frame:
+            rect = frame.get_rect(center=(int(self.princess_x), int(self.princess_y)))
+            pantalla.blit(frame, rect)
+        else:
+            # Fallback extremo: círculo simple
+            pygame.draw.circle(pantalla, (100, 200, 255), 
+                              (int(self.princess_x), int(self.princess_y)), 25)
+            pygame.draw.circle(pantalla, (255, 255, 255), 
+                              (int(self.princess_x), int(self.princess_y)), 25, 3)
         
         # Dibujar jugador con animación
         frame = self.player_anim.get_current_frame()
