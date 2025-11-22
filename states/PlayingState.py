@@ -1,10 +1,12 @@
 from states.State import State
 import pygame
 from config.enums import Element
+from config.spell_data import SPELL_DATABASE
 from systems.spell_system import SpellSystem
 from systems.circle import CircleManager
 from systems.spell_creator import SpellCastingSystem
 from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
+from entities.enemies import EnemyManager, EnemyType, Enemy
 
 class PlayingState(State):
     def __init__(self, game):
@@ -36,6 +38,8 @@ class PlayingState(State):
         
         # Cargar animaciones del jugador
         self._load_player_animations()
+
+        #cargar los enemifgos
         
         # Sistemas de hechizos
         self.spell_system = SpellSystem(projectile_pool_size=50, area_pool_size=30)
@@ -52,6 +56,12 @@ class PlayingState(State):
         
         # Estado de animación
         self.ultimo_elemento_lanzado = None
+
+        self.enemy_manager = EnemyManager()
+
+        self.enemy_manager.spawn_enemy(EnemyType.SLIME)
+        self.enemy_manager.spawn_enemy(EnemyType.ESQUELETO)
+        self.enemy_manager.spawn_enemy(EnemyType.MURCIELAGO)
     
     def _load_player_animations(self):
         """Carga todas las animaciones del jugador"""
@@ -161,6 +171,12 @@ class PlayingState(State):
                     self.spell_casting.create_circle(Element.AGUA)
                 elif e.key == pygame.K_SPACE:  # Lanzar hechizo
                     self._lanzar_hechizo()
+                elif e.key == pygame.K_q:  # Q = Slime
+                    self.enemy_manager.spawn_enemy(EnemyType.SLIME)
+                elif e.key == pygame.K_w:  # W = Esqueleto
+                    self.enemy_manager.spawn_enemy(EnemyType.ESQUELETO)
+                elif e.key == pygame.K_e:  # E = Murciélago
+                    self.enemy_manager.spawn_enemy(EnemyType.MURCIELAGO)
                     
     def update(self, dt):
         # Actualizar animación del jugador
@@ -179,10 +195,18 @@ class PlayingState(State):
         # Control por gestos
         if self.game.gestos_activos:
             self._actualizar_gestos(dt)
+
+        # Actualizar enemigos
+        self.enemy_manager.update(dt)
+
+        # Colisiones proyectiles-enemigos
+        self._check_projectile_collisions()
+
+        # Colisiones enemigos-jugador
+        if self.enemy_manager.check_collision_with_player(self.player_x, self.player_y):
+            self._player_take_damage()
         
-        # TODO: Actualizar enemigos
-        # TODO: Verificar colisiones proyectiles-enemigos
-        # TODO: Verificar colisiones enemigos-jugador
+
         
     def _actualizar_gestos(self, dt):
         """Procesa los gestos detectados por la cámara"""
@@ -298,6 +322,9 @@ class PlayingState(State):
             pygame.draw.circle(pantalla, (255, 255, 255), 
                               (int(self.player_x), int(self.player_y)), 25, 3)
         
+
+        self.enemy_manager.draw(pantalla)
+
         # Dibujar UI
         self._draw_ui(pantalla)
         
@@ -475,4 +502,120 @@ class PlayingState(State):
             f"Áreas: {area['active']}/{area['total']}", 
             True, (255, 255, 255)
         )
-        pantalla.blit(txt2, (x, y_offset + 25))
+
+        enemy_stats = self.enemy_manager.get_stats()
+        txt3 = self.game.fuente_mini.render(
+            f"Enemigos: {enemy_stats['total']}", 
+            True, (255, 255, 255)
+        )
+        pantalla.blit(txt3, (x, y_offset + 50))
+
+    def _check_projectile_collisions(self):
+        """Verifica colisiones entre proyectiles y enemigos"""
+        for projectile in self.spell_system.get_active_projectiles():
+            if not projectile.state.active or projectile.state.spell_data is None:
+                continue
+
+            for enemy in self.enemy_manager.get_active_enemies():
+                if projectile.rect.colliderect(enemy.rect):
+                    if projectile.can_hit_enemy():
+                        # Determinar elemento del hechizo
+                        elemento = self._get_element_from_spell_type(projectile.state.spell_data)
+                        trayectoria = projectile.state.trajectory_type
+
+                        # Intentar hacer daño
+                        hit = enemy.take_damage(
+                            projectile.state.spell_data.daño,
+                            elemento,
+                            trayectoria
+                        )
+
+                        if hit:
+                            # Aplicar efectos secundarios del hechizo
+                            self._apply_spell_effects(enemy, projectile.state.spell_data)
+
+                            # Dar puntos
+                            self.puntos += 10
+
+                            # Verificar si proyectil debe destruirse
+                            if not projectile.on_hit_enemy():
+                                projectile.deactivate()
+                        else:
+                            # El enemigo es inmune (ej: murciélago vs ataque frontal)
+                            # Mostrar feedback visual opcional
+                            pass    
+
+    def _get_element_from_spell_type(self, spell_data):
+        """Determina el elemento principal de un hechizo"""
+        from config.enums import SpellType
+
+        # Mapeo de SpellType a Element
+        spell_to_element = {
+            SpellType.NEUTRAL: Element.NEUTRAL,
+            SpellType.FUEGO: Element.FUEGO,
+            SpellType.HIELO: Element.HIELO,
+            SpellType.RAYO: Element.RAYO,
+            SpellType.TIERRA: Element.TIERRA,
+            SpellType.AGUA: Element.AGUA,
+
+            # Combos: usar elemento dominante
+            SpellType.VAPOR: Element.FUEGO,
+            SpellType.EXPLOSION: Element.FUEGO,
+            SpellType.LAVA: Element.FUEGO,
+            SpellType.VAPOR_CALIENTE: Element.FUEGO,
+            SpellType.TORMENTA_HIELO: Element.HIELO,
+            SpellType.AVALANCHA: Element.HIELO,
+            SpellType.VENTISCA: Element.HIELO,
+            SpellType.TEMBLOR: Element.TIERRA,
+            SpellType.ELECTROCUCION: Element.RAYO,
+            SpellType.BARRO: Element.TIERRA,
+        }
+
+        # Buscar por nombre del hechizo
+        for spell_type, element in spell_to_element.items():
+            if spell_data.nombre == SPELL_DATABASE[spell_type].nombre:
+                return element
+
+        return Element.NEUTRAL
+    
+    def _apply_spell_effects(self, enemy, spell_data):
+        """Aplica efectos de estado según el tipo de hechizo"""
+        from config.enums import EffectType
+
+        efecto = spell_data.efecto
+        params = spell_data.efecto_params
+
+        if efecto == EffectType.SLOW:
+            enemy.apply_slow(
+                params.get("slow_factor", 0.5),
+                params.get("duracion", 2.0)
+            )
+
+        elif efecto == EffectType.STUN:
+            enemy.apply_stun(params.get("duracion", 1.0))
+
+        elif efecto == EffectType.DOT:
+            enemy.apply_dot(
+                params.get("tick_damage", 2),
+                params.get("duracion", 3.0),
+                params.get("tick_rate", 0.5)
+            )
+
+        elif efecto == EffectType.FREEZE:
+            # Congelar = stun más largo
+            enemy.apply_stun(params.get("duracion_congelacion", 2.0))
+
+    def _player_take_damage(self):
+        """Llamado cuando un enemigo toca al jugador"""
+        self.player_hp -= 1
+
+        # Eliminar todos los enemigos de la pantalla
+        self.enemy_manager.clear_all()
+
+        # Feedback visual (opcional: hacer parpadear la pantalla)
+        print(f"¡DAÑO RECIBIDO! HP restante: {self.player_hp}")
+
+        if self.player_hp <= 0:
+            # Game Over
+            print("GAME OVER")
+            self.game.change_state("menu")  # O crear un estado de Game Over

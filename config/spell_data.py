@@ -172,11 +172,11 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         color_secundario=(100, 180, 255),
         velocidad=1000,
         daño=8,
-        tamaño=20,
+        tamaño=10,
         comportamiento=BehaviorType.PROYECTIL_MULTIPLE,
         efecto=EffectType.FREEZE,
         efecto_params={
-            "num_proyectiles": 8,      # Dispara 5 proyectiles
+            "num_proyectiles": 20,      # Dispara 5 proyectiles
             "spread_angulo": 85,       # Ángulo de dispersión
             "duracion_congelacion": 2.0
         }
