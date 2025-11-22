@@ -2,6 +2,8 @@ import pygame
 import cv2
 from systems.gesture_detector import GestureDetector
 from states import OptionsState, MenuState, PlayingState, PauseState
+from systems.audio_manager import AudioManager, MusicTrack, SoundEffect
+
 
 
 
@@ -16,6 +18,8 @@ class Game:
         self.fuente_grande = pygame.font.Font(None, 74)
         self.fuente_chica = pygame.font.Font(None, 36)
         self.fuente_mini = pygame.font.Font(None, 24)
+
+        
         
         # Configuraciones
         self.volumen = 0.5
@@ -23,6 +27,8 @@ class Game:
         
         # Sistema de detección de gestos
         self.gesture_detector = GestureDetector()
+        self.audio = AudioManager()
+
         
         # Registro de estados
         self.states = {

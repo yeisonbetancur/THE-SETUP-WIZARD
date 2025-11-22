@@ -9,6 +9,8 @@ class PauseState(State):
         self.btn_continuar = Button(cx - 100, 280, 200, 50, "CONTINUAR", self.game.fuente_chica)
         self.btn_menu = Button(cx - 100, 350, 200, 50, "MENÚ", self.game.fuente_chica, (120, 50, 50), (180, 70, 70))
         self.botones = [self.btn_continuar, self.btn_menu]
+        self.game.audio.pause_music()
+
         
         # Pausar detección de gestos
         self.game.gesture_detector.detener_camara()
@@ -16,6 +18,7 @@ class PauseState(State):
     def exit(self):
         print("Reanudando juego")
         # Reanudar gestos si estaban activos
+        self.game.audio.unpause_music()
         if self.game.gestos_activos:
             self.game.gesture_detector.iniciar_camara()
             

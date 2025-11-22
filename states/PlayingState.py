@@ -8,6 +8,7 @@ from systems.spell_creator import SpellCastingSystem
 from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
 from entities.enemies import EnemyManager, EnemyType, Enemy
 from systems.wave_manager import WaveManager
+from systems.audio_manager import MusicTrack, SoundEffect
 
 class PlayingState(State):
     def __init__(self, game):
@@ -20,12 +21,14 @@ class PlayingState(State):
         
         # Inicializar solo la primera vez
         if not self._initialized:
-            print("Iniciando partida")
             self._initialize_game()
             self._initialized = True
+            # Reproducir música con fade in de 1 segundo
+            self.game.audio.play_music(MusicTrack.GAMEPLAY, loop=True, fade_in=1.0)
         else:
-            print("Resumiendo partida")
-        
+            self.game.audio.unpause_music()
+    
+            
         # Iniciar cámara si los gestos están activos
         if self.game.gestos_activos:
             self.game.gesture_detector.iniciar_camara()
@@ -572,38 +575,39 @@ class PlayingState(State):
 
     def _check_projectile_collisions(self):
         """Verifica colisiones entre proyectiles/áreas y enemigos"""
-        
+
         # === COLISIONES DE PROYECTILES ===
         for projectile in self.spell_system.get_active_projectiles():
             if not projectile.state.active or projectile.state.spell_data is None:
                 continue
-            
+
             for enemy in self.enemy_manager.get_active_enemies():
                 if projectile.rect.colliderect(enemy.rect):
                     if projectile.can_hit_enemy():
                         elemento = self._get_element_from_spell_type(projectile.state.spell_data)
                         trayectoria = projectile.state.trajectory_type
-    
+
                         hit = enemy.take_damage(
                             projectile.state.spell_data.daño,
                             elemento,
                             trayectoria
                         )
-    
+
                         if hit:
+                            self.game.audio.play_sound(SoundEffect.HIT)
                             self._apply_spell_effects(enemy, projectile.state.spell_data)
                             self.puntos += 10
-    
+
                             if projectile.state.spell_data.efecto == EffectType.AREA_EXPLOSION:
                                 self._handle_area_explosion(
                                     projectile.state.x,
                                     projectile.state.y,
                                     projectile.state.spell_data
                                 )
-    
+
                             if not projectile.on_hit_enemy():
                                 projectile.deactivate()
-        
+
         # === COLISIONES DE EFECTOS DE ÁREA ===
         for area_effect in self.spell_system.get_active_area_effects():
             if not area_effect.state.active:
@@ -615,12 +619,13 @@ class PlayingState(State):
                     # Verificar si puede afectar a este enemigo (cooldown de tick)
                     if area_effect.can_affect_enemy(id(enemy)):
                         elemento = self._get_element_from_spell_type(area_effect.state.spell_data)
-                        
+
                         # Aplicar daño
                         damage = area_effect.get_damage()
                         if damage > 0:  # Daño normal
                             hit = enemy.take_damage(damage, elemento, TrajectoryType.FRONTAL)
                             if hit:
+                                self.game.audio.play_sound(SoundEffect.HIT)
                                 self.puntos += 2  # Menos puntos que proyectiles
                         elif damage < 0:  # Curación (ej: Vapor Caliente)
                             # TODO: implementar curación del jugador si es necesario
@@ -628,7 +633,7 @@ class PlayingState(State):
                         
                         # Aplicar efectos de estado
                         self._apply_spell_effects(enemy, area_effect.state.spell_data)
-                        
+
                         # Registrar que este enemigo fue afectado
                         area_effect.on_affect_enemy(id(enemy))
 
