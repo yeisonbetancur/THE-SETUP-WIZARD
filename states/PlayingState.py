@@ -7,6 +7,7 @@ from systems.circle import CircleManager
 from systems.spell_creator import SpellCastingSystem
 from systems.animation import AnimationController, Animation, load_animation_frames, create_placeholder_frames
 from entities.enemies import EnemyManager, EnemyType, Enemy
+from systems.wave_manager import WaveManager
 
 class PlayingState(State):
     def __init__(self, game):
@@ -32,9 +33,21 @@ class PlayingState(State):
     def _initialize_game(self):
         """Inicialización completa del juego (solo se llama una vez)"""
         # Jugador estático en esquina inferior izquierda
-        self.player_x = 100
-        self.player_y = 650
+        self.player_x = 200
+        self.player_y = 640
         self.player_hp = 3
+
+
+        try:
+            self.background = pygame.image.load("assets/backgrounds/game_bg.png").convert()
+            # Escalar al tamaño de la pantalla
+            self.background = pygame.transform.scale(
+                self.background, 
+                (self.game.pantalla.get_width(), self.game.pantalla.get_height())
+            )
+        except Exception as e:
+            print(f"WARNING: No se pudo cargar background: {e}")
+            self.background = None
         
         # Cargar animaciones del jugador
         self._load_player_animations()
@@ -57,16 +70,22 @@ class PlayingState(State):
         # Estado de animación
         self.ultimo_elemento_lanzado = None
 
+       # Sistema de enemigos y oleadas
         self.enemy_manager = EnemyManager()
+        self.wave_manager = WaveManager(self.enemy_manager)
 
-        self.enemy_manager.spawn_enemy(EnemyType.SLIME)
-        self.enemy_manager.spawn_enemy(EnemyType.ESQUELETO)
-        self.enemy_manager.spawn_enemy(EnemyType.MURCIELAGO)
+        # Configurar callbacks
+        self.wave_manager.on_wave_start = self._on_wave_start
+        self.wave_manager.on_wave_complete = self._on_wave_complete
+        self.wave_manager.on_all_waves_complete = self._on_victory
+
+        # Iniciar primera oleada
+        self.wave_manager.start_first_wave()
     
     def _load_player_animations(self):
         """Carga todas las animaciones del jugador"""
         self.player_anim = AnimationController()
-        player_size = (50, 50)
+        player_size = (100, 100)
         
         try:
             # === ANIMACIÓN IDLE (2 frames, loop) ===
@@ -197,6 +216,9 @@ class PlayingState(State):
             self._actualizar_gestos(dt)
 
         # Actualizar enemigos
+        self.wave_manager.update(dt)
+
+        # Actualizar enemigos
         self.enemy_manager.update(dt)
 
         # Colisiones proyectiles-enemigos
@@ -205,6 +227,22 @@ class PlayingState(State):
         # Colisiones enemigos-jugador
         if self.enemy_manager.check_collision_with_player(self.player_x, self.player_y):
             self._player_take_damage()
+
+    def _player_take_damage(self):
+        """Llamado cuando un enemigo toca al jugador"""
+        self.player_hp -= 1
+
+        # Eliminar todos los enemigos de la pantalla
+        self.enemy_manager.clear_all()
+
+        # Feedback visual/sonoro (opcional)
+        print(f"¡DAÑO RECIBIDO! HP restante: {self.player_hp}/3")
+
+        # Verificar Game Over
+        if self.player_hp <= 0:
+            print("GAME OVER")
+            # Volver al menú (o crear un estado de Game Over)
+            self.game.change_state("menu")
         
 
         
@@ -302,7 +340,18 @@ class PlayingState(State):
         return Element.NEUTRAL
     
     def draw(self, pantalla):
-        pantalla.fill((30, 40, 60))  # Fondo oscuro
+        if self.background:
+            pantalla.blit(self.background, (0, 0))
+        else:
+            # Fallback: color sólido
+            pantalla.fill((30, 40, 60))
+
+
+        if hasattr(self, 'damage_flash_timer') and self.damage_flash_timer > 0:
+            flash_overlay = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
+            alpha = int(150 * (self.damage_flash_timer / 0.3))
+            flash_overlay.fill((255, 0, 0, alpha))
+            pantalla.blit(flash_overlay, (0, 0))
         
         # Dibujar efectos de área (atrás)
         self.spell_system.draw(pantalla)
@@ -339,9 +388,20 @@ class PlayingState(State):
         vidas_txt = self.game.fuente_chica.render(f"❤️ x{self.player_hp}", True, (255, 50, 50))
         pantalla.blit(vidas_txt, (10, y_offset))
         
-        # Oleada
-        oleada_txt = self.game.fuente_chica.render(f"Oleada: {self.oleada_actual}/8", True, (255, 255, 255))
+        progress = self.wave_manager.get_wave_progress()
+        oleada_txt = self.game.fuente_chica.render(
+            f"Oleada: {progress['wave_number']}/{self.wave_manager.get_total_waves()}", 
+            True, (255, 255, 255)
+        )
         pantalla.blit(oleada_txt, (10, y_offset + 40))
+
+        # Enemigos restantes
+        if progress["state"] in ("spawning", "fighting"):
+            enemigos_txt = self.game.fuente_mini.render(
+                f"Enemigos: {progress['enemies_remaining']}/{progress['enemies_total']}", 
+                True, (200, 200, 200)
+            )
+            pantalla.blit(enemigos_txt, (10, y_offset + 70))
         
         # Puntos
         puntos_txt = self.game.fuente_chica.render(f"Puntos: {self.puntos}", True, (255, 255, 255))
@@ -511,47 +571,66 @@ class PlayingState(State):
         pantalla.blit(txt3, (x, y_offset + 50))
 
     def _check_projectile_collisions(self):
-        """Verifica colisiones entre proyectiles y enemigos"""
+        """Verifica colisiones entre proyectiles/áreas y enemigos"""
+        
+        # === COLISIONES DE PROYECTILES ===
         for projectile in self.spell_system.get_active_projectiles():
             if not projectile.state.active or projectile.state.spell_data is None:
                 continue
-
+            
             for enemy in self.enemy_manager.get_active_enemies():
                 if projectile.rect.colliderect(enemy.rect):
                     if projectile.can_hit_enemy():
-                        # Determinar elemento del hechizo
                         elemento = self._get_element_from_spell_type(projectile.state.spell_data)
                         trayectoria = projectile.state.trajectory_type
-
-                        # Intentar hacer daño
+    
                         hit = enemy.take_damage(
                             projectile.state.spell_data.daño,
                             elemento,
                             trayectoria
                         )
-
+    
                         if hit:
-                            # Aplicar efectos secundarios del hechizo
                             self._apply_spell_effects(enemy, projectile.state.spell_data)
-
-                            # Dar puntos
                             self.puntos += 10
-
-
+    
                             if projectile.state.spell_data.efecto == EffectType.AREA_EXPLOSION:
                                 self._handle_area_explosion(
                                     projectile.state.x,
                                     projectile.state.y,
                                     projectile.state.spell_data
                                 )
-
-                            # Verificar si proyectil debe destruirse
+    
                             if not projectile.on_hit_enemy():
                                 projectile.deactivate()
-                        else:
-                            # El enemigo es inmune (ej: murciélago vs ataque frontal)
-                            # Mostrar feedback visual opcional
-                            pass    
+        
+        # === COLISIONES DE EFECTOS DE ÁREA ===
+        for area_effect in self.spell_system.get_active_area_effects():
+            if not area_effect.state.active:
+                continue
+            
+            for enemy in self.enemy_manager.get_active_enemies():
+                # Verificar si el enemigo está dentro del área
+                if area_effect.rect.colliderect(enemy.rect):
+                    # Verificar si puede afectar a este enemigo (cooldown de tick)
+                    if area_effect.can_affect_enemy(id(enemy)):
+                        elemento = self._get_element_from_spell_type(area_effect.state.spell_data)
+                        
+                        # Aplicar daño
+                        damage = area_effect.get_damage()
+                        if damage > 0:  # Daño normal
+                            hit = enemy.take_damage(damage, elemento, TrajectoryType.FRONTAL)
+                            if hit:
+                                self.puntos += 2  # Menos puntos que proyectiles
+                        elif damage < 0:  # Curación (ej: Vapor Caliente)
+                            # TODO: implementar curación del jugador si es necesario
+                            pass
+                        
+                        # Aplicar efectos de estado
+                        self._apply_spell_effects(enemy, area_effect.state.spell_data)
+                        
+                        # Registrar que este enemigo fue afectado
+                        area_effect.on_affect_enemy(id(enemy))
 
     def _get_element_from_spell_type(self, spell_data):
         """Determina el elemento principal de un hechizo"""
@@ -652,10 +731,19 @@ class PlayingState(State):
                 elemento = self._get_element_from_spell_type(spell_data)
                 enemy.take_damage(daño, elemento, TrajectoryType.FRONTAL)
 
-                # Empujar enemigos hacia afuera
-                if distancia > 0:
-                    direccion_x = dx / distancia
-                    direccion_y = dy / distancia
-                    fuerza = 150 * factor  # Más fuerza cerca del centro
-                    enemy.x += direccion_x * fuerza
-                    enemy.y += direccion_y * fuerza
+
+    def _on_wave_start(self, wave_number):
+        """Llamado cuando inicia una oleada"""
+        print(f"🌊 ¡Oleada {wave_number} comienza!")
+
+    def _on_wave_complete(self, wave_number, reward_points):
+        """Llamado cuando se completa una oleada"""
+        self.puntos += reward_points
+        print(f"✅ ¡Oleada {wave_number} completada! +{reward_points} puntos")
+
+    def _on_victory(self):
+        """Llamado cuando se completan todas las oleadas"""
+        print("🎉 ¡VICTORIA! ¡HAS COMPLETADO TODAS LAS OLEADAS!")
+        # TODO: Crear estado de victoria
+        # Por ahora volver al menú
+        self.game.change_state("menu")

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Tuple
 from config.enums import BehaviorType
 from config.enums import EffectType
+from config.enums import TrajectoryType
 
 
 @dataclass
@@ -17,6 +18,7 @@ class SpellData:
     comportamiento: BehaviorType = BehaviorType.PROYECTIL_SIMPLE
     efecto: EffectType = EffectType.DAÑO_DIRECTO
     efecto_params: Dict[str, Any] = field(default_factory=dict)
+    trajectory: TrajectoryType =TrajectoryType.FRONTAL
     
     # Modificadores de trayectoria
     gravedad: float = 0.0  # Para trayectorias aéreas

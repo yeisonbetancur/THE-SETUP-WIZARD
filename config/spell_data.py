@@ -5,6 +5,7 @@ from config.enums import EffectType
 from config.enums import SpellType
 from config.enums import Element
 from config.dataclass import SpellData
+from config.enums import TrajectoryType
 
 SPELL_DATABASE: Dict[SpellType, SpellData] = {
     # ==================
@@ -17,6 +18,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=400,
         daño=10,
         tamaño=8,
+        trajectory=TrajectoryType.FRONTAL,
         comportamiento=BehaviorType.PROYECTIL_SIMPLE,
         efecto=EffectType.DAÑO_DIRECTO
     ),
@@ -28,6 +30,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=450,
         daño=15,
         tamaño=25,
+        trajectory=TrajectoryType.FRONTAL,
         comportamiento=BehaviorType.PROYECTIL_SIMPLE,
         efecto=EffectType.DOT,
         efecto_params={
@@ -41,9 +44,10 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         nombre="Orbe de Hielo",
         color_primario=(100, 200, 255),
         color_secundario=(200, 240, 255),
-        velocidad=350,
+        velocidad=700,
         daño=12,
         tamaño=10,
+        trajectory=TrajectoryType.FRONTAL,
         comportamiento=BehaviorType.PROYECTIL_SIMPLE,
         efecto=EffectType.SLOW,
         efecto_params={
@@ -59,6 +63,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=600,
         daño=10,
         tamaño=6,
+        trajectory=TrajectoryType.AEREA,
         comportamiento=BehaviorType.ATRAVIESA_ENEMIGOS,
         efecto=EffectType.DAÑO_DIRECTO,
         efecto_params={
@@ -73,6 +78,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=300,
         daño=20,
         tamaño=14,
+        trajectory=TrajectoryType.BAJA,
         comportamiento=BehaviorType.PROYECTIL_SIMPLE,
         efecto=EffectType.STUN,
         efecto_params={
@@ -87,6 +93,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=380,
         daño=8,
         tamaño=12,
+        trajectory=TrajectoryType.FRONTAL,
         comportamiento=BehaviorType.PROYECTIL_SIMPLE,
         efecto=EffectType.KNOCKBACK,
         efecto_params={
@@ -121,6 +128,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=500,
         daño=25,
         tamaño=10,
+        trajectory=TrajectoryType.AEREA,
         comportamiento=BehaviorType.EXPLOSION_IMPACTO,
         efecto=EffectType.AREA_EXPLOSION,
         efecto_params={
@@ -174,6 +182,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         daño=8,
         tamaño=10,
         comportamiento=BehaviorType.PROYECTIL_MULTIPLE,
+        trajectory=TrajectoryType.AEREA,
         efecto=EffectType.FREEZE,
         efecto_params={
             "num_proyectiles": 20,      # Dispara 5 proyectiles
@@ -189,6 +198,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         velocidad=700,
         daño=35,
         tamaño=30,
+        trajectory=TrajectoryType.BAJA,
         comportamiento=BehaviorType.PROYECTIL_MASIVO,
         efecto=EffectType.STUN,
         efecto_params={
@@ -238,6 +248,7 @@ SPELL_DATABASE: Dict[SpellType, SpellData] = {
         daño=12,
         tamaño=10,
         comportamiento=BehaviorType.CADENA,
+        trajectory=TrajectoryType.FRONTAL,
         efecto=EffectType.CHAIN_DAMAGE,
         efecto_params={
             "max_saltos": 4,           # Salta a 4 enemigos

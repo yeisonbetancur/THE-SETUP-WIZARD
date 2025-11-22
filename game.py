@@ -9,7 +9,7 @@ class Game:
     def __init__(self):
         pygame.init()
         self.pantalla = pygame.display.set_mode((1280, 720))
-        pygame.display.set_caption("State Pattern con Gestos")
+        pygame.display.set_caption("SETUP WIZARD")
         self.clock = pygame.time.Clock()
         self.corriendo = True
         

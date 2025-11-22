@@ -165,7 +165,7 @@ class Enemy:
                 f"assets/sprites/enemies/{enemy_name}",
                 "frame_",
                 num_frames=self.data.num_frames,
-                scale=(self.data.tamaño * 2, self.data.tamaño * 2)
+                scale=(self.data.tamaño * 3, self.data.tamaño * 3)
             )
             
             # Verificar si se cargaron sprites válidos
@@ -241,6 +241,7 @@ class Enemy:
         if self.dot_active:
             self.dot_timer -= dt
             self.dot_next_tick -= dt
+            print("dot activo")
             
             # Aplicar tick de daño
             if self.dot_next_tick <= 0:
@@ -418,7 +419,7 @@ class Enemy:
             # Icono de fuego/veneno
             pygame.draw.circle(screen, (255, 100, 0), (icon_x, icon_y), 3)
 
-    def apply_knockback(self, fuerza: float, direccion_x: float = -1):
+    def apply_knockback(self, fuerza: float, direccion_x: float = 1):
         """
         Aplica un empujón al enemigo.
 
@@ -429,7 +430,7 @@ class Enemy:
         # Empujar al enemigo
         self.x += direccion_x * fuerza
 
-        # Asegurar que no salga demasiado de la pantalla
+        # Asegurar que no salga demasiado d e la pantalla
         self.x = max(-50, min(self.x, self.SCREEN_WIDTH + 50))
 
 
