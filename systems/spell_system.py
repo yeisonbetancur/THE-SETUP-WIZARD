@@ -93,7 +93,6 @@ class SpellSystem:
         offset_x = 50
         start_x = player_x + offset_x
         start_y = player_y
-        trajectory=spell_type.trajectory
         
         # Calcular ángulos de dispersión
         if num_proyectiles == 1:

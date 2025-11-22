@@ -33,10 +33,10 @@ class OptionsState(State):
             if self.selector_gestos.handle_event(e):
                 self.game.gestos_activos = (self.selector_gestos.get_valor() == "ACTIVADO")
             if self.btn_volver.clicked(e):
-                self.game.volumen = self.slider_volumen.valor
+                self.game.audio.set_music_volume(self.slider_volumen.valor)
                 self.game.change_state("menu")
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                self.game.volumen = self.slider_volumen.valor
+                self.game.audio.set_music_volume(self.slider_volumen.valor)
                 self.game.change_state("menu")
                 
     def update(self, dt):

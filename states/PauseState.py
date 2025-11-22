@@ -1,6 +1,7 @@
 from states.State import State
 from ui.menu_classes import Button
 import pygame
+from systems.audio_manager import AudioManager
 
 class PauseState(State):
     def enter(self):
@@ -18,7 +19,6 @@ class PauseState(State):
     def exit(self):
         print("Reanudando juego")
         # Reanudar gestos si estaban activos
-        self.game.audio.unpause_music()
         if self.game.gestos_activos:
             self.game.gesture_detector.iniciar_camara()
             
@@ -27,8 +27,10 @@ class PauseState(State):
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 self.game.change_state("jugando")
             if self.btn_continuar.clicked(e):
+                self.game.audio.unpause()
                 self.game.change_state("jugando")
             elif self.btn_menu.clicked(e):
+                self.game.audio.stop_music(0)
                 self.game.change_state("menu")
                 
     def update(self, dt):

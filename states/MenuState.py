@@ -10,6 +10,7 @@ class MenuState(State):
         self.btn_opciones = Button(cx - 100, 350, 200, 50, "OPCIONES", self.game.fuente_chica)
         self.btn_salir = Button(cx - 100, 420, 200, 50, "SALIR", self.game.fuente_chica, (120, 50, 50), (180, 70, 70))
         self.botones = [self.btn_jugar, self.btn_opciones, self.btn_salir]
+        self.game.audio.stop_music(0)
 
         try:
             self.background = pygame.image.load("assets/backgrounds/menu_bg.jpg").convert()
@@ -42,7 +43,6 @@ class MenuState(State):
             
     def draw(self, pantalla):
 
-        
 
         if self.background:
             pantalla.blit(self.background, (0, 0))
