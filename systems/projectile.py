@@ -53,13 +53,13 @@ class Projectile:
             # Intentar cargar frames desde carpeta del hechizo
             spell_name = spell_type.name.lower()
             folder_path = f"assets/sprites/spells/{spell_name}"
-            
+
             # Verificar que al menos existe el primer frame
             first_frame_path = f"{folder_path}/frame_0.png"
-            
+
             # Intentar cargar el primer frame como prueba
             test_frame = pygame.image.load(first_frame_path).convert_alpha()
-            
+
             # Si llegamos aquí, el archivo existe
             frames = load_animation_frames(
                 folder_path,
@@ -67,22 +67,22 @@ class Projectile:
                 num_frames=self.ANIMATION_FRAMES,
                 scale=(self.state.spell_data.tamaño * 2, self.state.spell_data.tamaño * 2)
             )
-            
+
             # Crear animación
             anim = Animation(
                 frames, 
                 frame_duration=self.ANIMATION_FRAME_DURATION, 
                 loop=True
             )
-            
+
             # Crear controller y agregar animación
             self.anim_controller = AnimationController()
             self.anim_controller.add_animation("idle", anim)
             self.anim_controller.play("idle")
-            
+
             self.use_animation = True
             print(f"✓ Animación cargada para {spell_name}")
-            
+
         except (FileNotFoundError, pygame.error) as e:
             # Fallback: usar gráficos procedurales
             print(f"⚠ No se encontraron sprites para {spell_type.name}, usando fallback: {e}")
@@ -184,13 +184,18 @@ class Projectile:
     
     def can_hit_enemy(self) -> bool:
         """Verifica si este proyectil puede golpear a un enemigo"""
+        if self.state.spell_data is None:  # ← AGREGAR ESTA VERIFICACIÓN
+            return False
+
         behavior = self.state.spell_data.comportamiento
-        
-        if behavior == BehaviorType.ATRAVIESA_ENEMIGOS:
-            # Verificar si no ha superado el máximo de enemigos
+
+        # CADENA temporalmente se comporta como atraviesa
+        if behavior == BehaviorType.ATRAVIESA_ENEMIGOS or behavior == BehaviorType.CADENA:
             max_enemigos = self.state.spell_data.efecto_params.get("max_enemigos", 999)
+            if behavior == BehaviorType.CADENA:
+                max_enemigos = self.state.spell_data.efecto_params.get("max_saltos", 4)
             return self.state.enemigos_atravesados < max_enemigos
-        
+
         return True
     
     def on_hit_enemy(self) -> bool:
@@ -198,11 +203,16 @@ class Projectile:
         Llamado cuando golpea a un enemigo.
         Returns: True si el proyectil debe seguir activo, False si debe destruirse
         """
+        if self.state.spell_data is None:  # ← AGREGAR
+            return False
+            
         behavior = self.state.spell_data.comportamiento
         
-        if behavior == BehaviorType.ATRAVIESA_ENEMIGOS:
+        if behavior == BehaviorType.ATRAVIESA_ENEMIGOS or behavior == BehaviorType.CADENA:
             self.state.enemigos_atravesados += 1
             max_enemigos = self.state.spell_data.efecto_params.get("max_enemigos", 999)
+            if behavior == BehaviorType.CADENA:
+                max_enemigos = self.state.spell_data.efecto_params.get("max_saltos", 4)
             return self.state.enemigos_atravesados < max_enemigos
         
         # Por defecto, el proyectil se destruye al impactar

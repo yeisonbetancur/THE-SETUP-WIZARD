@@ -1,6 +1,6 @@
 from states.State import State
 import pygame
-from config.enums import Element
+from config.enums import Element, EffectType, TrajectoryType
 from config.spell_data import SPELL_DATABASE
 from systems.spell_system import SpellSystem
 from systems.circle import CircleManager
@@ -537,6 +537,14 @@ class PlayingState(State):
                             # Dar puntos
                             self.puntos += 10
 
+
+                            if projectile.state.spell_data.efecto == EffectType.AREA_EXPLOSION:
+                                self._handle_area_explosion(
+                                    projectile.state.x,
+                                    projectile.state.y,
+                                    projectile.state.spell_data
+                                )
+
                             # Verificar si proyectil debe destruirse
                             if not projectile.on_hit_enemy():
                                 projectile.deactivate()
@@ -592,7 +600,7 @@ class PlayingState(State):
             )
 
         elif efecto == EffectType.STUN:
-            enemy.apply_stun(params.get("duracion", 1.0))
+            enemy.apply_stun(params.get("duracion", 1.0), is_freeze=False)
 
         elif efecto == EffectType.DOT:
             enemy.apply_dot(
@@ -602,20 +610,52 @@ class PlayingState(State):
             )
 
         elif efecto == EffectType.FREEZE:
-            # Congelar = stun más largo
-            enemy.apply_stun(params.get("duracion_congelacion", 2.0))
+            # Congelar = stun con visual de hielo
+            enemy.apply_stun(
+                params.get("duracion_congelacion", 2.0), 
+                is_freeze=True  # ← Indicar que es freeze
+            )
 
-    def _player_take_damage(self):
-        """Llamado cuando un enemigo toca al jugador"""
-        self.player_hp -= 1
+        elif efecto == EffectType.KNOCKBACK:
+            # Empujar al enemigo hacia atrás
+            enemy.apply_knockback(params.get("fuerza", 200))
 
-        # Eliminar todos los enemigos de la pantalla
-        self.enemy_manager.clear_all()
+        elif efecto == EffectType.CONFUSION:
+            enemy.apply_confusion(params.get("duracion", 4.0))
 
-        # Feedback visual (opcional: hacer parpadear la pantalla)
-        print(f"¡DAÑO RECIBIDO! HP restante: {self.player_hp}")
 
-        if self.player_hp <= 0:
-            # Game Over
-            print("GAME OVER")
-            self.game.change_state("menu")  # O crear un estado de Game Over
+    def _handle_area_explosion(self, explosion_x, explosion_y, spell_data):
+        """Maneja la explosión de área"""
+        from config.enums import EffectType
+
+        params = spell_data.efecto_params
+        radio = params.get("radio_explosion", 100)
+        daño_centro = params.get("daño_centro", 25)
+        daño_borde = params.get("daño_borde", 10)
+
+        # Encontrar todos los enemigos en el radio
+        for enemy in self.enemy_manager.get_active_enemies():
+            # Calcular distancia
+            dx = enemy.x - explosion_x
+            dy = enemy.y - explosion_y
+            distancia = (dx**2 + dy**2)**0.5
+
+            if distancia <= radio:
+                # Calcular daño según distancia (interpolación lineal)
+                if distancia == 0:
+                    daño = daño_centro
+                else:
+                    factor = 1 - (distancia / radio)
+                    daño = int(daño_borde + (daño_centro - daño_borde) * factor)
+
+                # Aplicar daño
+                elemento = self._get_element_from_spell_type(spell_data)
+                enemy.take_damage(daño, elemento, TrajectoryType.FRONTAL)
+
+                # Empujar enemigos hacia afuera
+                if distancia > 0:
+                    direccion_x = dx / distancia
+                    direccion_y = dy / distancia
+                    fuerza = 150 * factor  # Más fuerza cerca del centro
+                    enemy.x += direccion_x * fuerza
+                    enemy.y += direccion_y * fuerza

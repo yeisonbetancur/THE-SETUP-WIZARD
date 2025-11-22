@@ -5,7 +5,7 @@ import cv2
 
 
 class GestureDetector:
-    def __init__(self, tiempo_confirmacion=0.8):
+    def __init__(self, tiempo_confirmacion=0.5):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             max_num_hands=1,

@@ -51,7 +51,7 @@ ENEMY_DATABASE: Dict[EnemyType, EnemyData] = {
     EnemyType.SLIME: EnemyData(
         nombre="Slime",
         hp=30,
-        velocidad=80,
+        velocidad=60,
         daño_al_jugador=1,
         tamaño=25,
         color_placeholder=(100, 255, 100),
@@ -65,7 +65,7 @@ ENEMY_DATABASE: Dict[EnemyType, EnemyData] = {
     EnemyType.ESQUELETO: EnemyData(
         nombre="Esqueleto",
         hp=50,
-        velocidad=60,
+        velocidad=30,
         daño_al_jugador=1,
         tamaño=30,
         color_placeholder=(220, 220, 220),
@@ -79,11 +79,11 @@ ENEMY_DATABASE: Dict[EnemyType, EnemyData] = {
     EnemyType.MURCIELAGO: EnemyData(
         nombre="Murciélago",
         hp=20,
-        velocidad=120,
+        velocidad=50,
         daño_al_jugador=1,
         tamaño=20,
         color_placeholder=(80, 50, 100),
-        debilidades={Element.RAYO},  # Débil a rayo
+        debilidades={Element.HIELO},  # Débil a rayo
         resistencias={Element.TIERRA},  # Resistente a tierra (vuela)
         solo_vulnerable_a=TrajectoryType.AEREA,  # ¡Solo vulnerable a ataques aéreos!
         num_frames=2,
@@ -124,6 +124,10 @@ class Enemy:
         self.max_hp = self.data.hp
         self.velocidad = self.data.velocidad
         self.activo = True
+
+        self.confused = False
+        self.confusion_timer = 0.0
+        self.original_velocidad = self.velocidad
         
         # Efectos de estado
         self.slowed = False
@@ -132,6 +136,7 @@ class Enemy:
         
         self.stunned = False
         self.stun_timer = 0.0
+        self.frozen = False
         
         # DoT (Damage over Time)
         self.dot_active = False
@@ -221,6 +226,16 @@ class Enemy:
             self.stun_timer -= dt
             if self.stun_timer <= 0:
                 self.stunned = False
+                self.frozen = False  # ← AGREGAR
+
+
+        if self.confused:
+            self.confusion_timer -= dt
+            if self.confusion_timer <= 0:
+                self.confused = False
+                # Restaurar dirección normal (hacia la izquierda)
+                self.velocidad = abs(self.original_velocidad)
+    
         
         # DoT
         if self.dot_active:
@@ -281,10 +296,12 @@ class Enemy:
         self.slow_factor = slow_factor
         self.slow_timer = duracion
     
-    def apply_stun(self, duracion: float):
+    def apply_stun(self, duracion: float,is_freeze: bool = False):
         """Aplica efecto de aturdimiento"""
         self.stunned = True
         self.stun_timer = duracion
+        self.frozen = is_freeze  # ← AGREGAR
+
     
     def apply_dot(self, damage: int, duracion: float, tick_rate: float):
         """Aplica efecto de daño continuo"""
@@ -309,18 +326,33 @@ class Enemy:
         """Dibuja el enemigo"""
         if not self.activo:
             return
-        
+
         if self.anim_controller:
             # Usar animación
             frame = self.anim_controller.get_current_frame()
             if frame:
+                # Si está congelado, aplicar tinte azul
+                if self.frozen:
+                    # Crear una copia del frame con tinte azul
+                    frozen_frame = frame.copy()
+                    frozen_overlay = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+                    frozen_overlay.fill((100, 200, 255, 100))  # Azul semi-transparente
+                    frozen_frame.blit(frozen_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    frame = frozen_frame
+
                 rect = frame.get_rect(center=(int(self.x), int(self.y)))
                 screen.blit(frame, rect)
         else:
             # Fallback: gráfico procedural
+            color = self.data.color_placeholder
+
+            # Si está congelado, cambiar color a azul claro
+            if self.frozen:
+                color = (100, 200, 255)
+
             pygame.draw.circle(
                 screen,
-                self.data.color_placeholder,
+                color,
                 (int(self.x), int(self.y)),
                 self.data.tamaño
             )
@@ -331,10 +363,10 @@ class Enemy:
                 self.data.tamaño,
                 2
             )
-        
+
         # Dibujar barra de HP
         self._draw_hp_bar(screen)
-        
+
         # Indicadores de estado
         self._draw_status_indicators(screen)
     
@@ -344,36 +376,73 @@ class Enemy:
         bar_height = 5
         bar_x = int(self.x - bar_width // 2)
         bar_y = int(self.y - self.data.tamaño - 10)
-        
+
         # Fondo (rojo)
         pygame.draw.rect(screen, (100, 0, 0), (bar_x, bar_y, bar_width, bar_height))
-        
+
         # HP actual (verde)
         hp_percent = max(0, self.hp / self.max_hp)
         fill_width = int(bar_width * hp_percent)
         pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y, fill_width, bar_height))
-        
+
         # Borde
         pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 1)
-    
+
     def _draw_status_indicators(self, screen: pygame.Surface):
         """Dibuja iconos de efectos de estado"""
         icon_y = int(self.y - self.data.tamaño - 20)
         icon_x = int(self.x - 10)
-        
+
         if self.stunned:
-            # Estrellitas de aturdimiento
-            pygame.draw.circle(screen, (255, 255, 0), (icon_x, icon_y), 3)
+            if self.frozen:
+                # Icono de hielo (azul)
+                pygame.draw.circle(screen, (100, 200, 255), (icon_x, icon_y), 4)
+                pygame.draw.circle(screen, (200, 240, 255), (icon_x, icon_y), 2)
+            else:
+                # Estrellitas de aturdimiento (amarillo)
+                pygame.draw.circle(screen, (255, 255, 0), (icon_x, icon_y), 3)
             icon_x += 8
-        
+
+        if self.confused:
+        # Icono de confusión (espirales moradas/signos de interrogación)
+            pygame.draw.circle(screen, (180, 100, 180), (icon_x, icon_y), 4)
+            pygame.draw.circle(screen, (220, 150, 220), (icon_x, icon_y), 2)
+            icon_x += 8
+
         if self.slowed:
             # Icono de hielo/ralentización
             pygame.draw.circle(screen, (100, 200, 255), (icon_x, icon_y), 3)
             icon_x += 8
-        
+
         if self.dot_active:
             # Icono de fuego/veneno
             pygame.draw.circle(screen, (255, 100, 0), (icon_x, icon_y), 3)
+
+    def apply_knockback(self, fuerza: float, direccion_x: float = -1):
+        """
+        Aplica un empujón al enemigo.
+
+        Args:
+            fuerza: Fuerza del empujón en píxeles
+            direccion_x: Dirección del empujón (-1 = izquierda, 1 = derecha)
+        """
+        # Empujar al enemigo
+        self.x += direccion_x * fuerza
+
+        # Asegurar que no salga demasiado de la pantalla
+        self.x = max(-50, min(self.x, self.SCREEN_WIDTH + 50))
+
+
+    def apply_confusion(self, duracion: float):
+        """
+        Aplica efecto de confusión.
+        El enemigo cambia de dirección aleatoriamente.
+        """
+        self.confused = True
+        self.confusion_timer = duracion
+
+        # Cambiar dirección: ahora se mueve hacia la derecha (alejándose del jugador)
+        self.velocidad = -abs(self.original_velocidad)  # Negativo = hacia la derecha
 
 
 # ======================
@@ -456,6 +525,9 @@ class EnemyManager:
                 "murcielago": sum(1 for e in self.enemies if e.enemy_type == EnemyType.MURCIELAGO),
             }
         }
+    
+
+    
 
 
 # ======================

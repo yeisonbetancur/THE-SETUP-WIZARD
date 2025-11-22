@@ -13,8 +13,8 @@ class SpellCreator:
     
     def __init__(self):
         # Cooldowns
-        self.cooldown_basico = 1.0  # segundos
-        self.cooldown_elemental = 5.0  # segundos
+        self.cooldown_basico = 0.3  # segundos
+        self.cooldown_elemental = 2.0  # segundos
         self.last_cast_time = 0.0
         
         # Estado
