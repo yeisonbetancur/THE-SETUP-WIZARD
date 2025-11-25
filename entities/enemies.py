@@ -318,11 +318,21 @@ class Enemy:
         self.hp = 0
     
     def is_touching_player(self, player_x: float, player_y: float, player_radius: float = 25) -> bool:
-        """Verifica si está tocando al jugador"""
-        dist_sq = (self.x - player_x)**2 + (self.y - player_y)**2
+        """Colisión vertical infinita y horizontal basada en la distancia actual."""
+        
+        # Colisión horizontal (igual que antes)
+        dx = self.x - player_x
         touch_dist = self.data.tamaño + player_radius
-        return dist_sq < touch_dist**2
     
+        # Mientras la distancia en X sea menor al límite → hay colisión
+        touching_horizontal = (dx*dx) < (touch_dist * touch_dist)
+    
+        # Colisión vertical en toda la pantalla → siempre verdadero
+        touching_vertical = True  
+    
+        # Solo se necesita que horizontal sea verdadero
+        return touching_horizontal and touching_vertical
+
     def draw(self, screen: pygame.Surface):
         """Dibuja el enemigo"""
         if not self.activo:
