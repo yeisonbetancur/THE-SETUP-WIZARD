@@ -1,10 +1,8 @@
 import pygame
 import cv2
 from systems.gesture_detector import GestureDetector
-from states import OptionsState, MenuState, PlayingState, PauseState
+from states import OptionsState, MenuState, PlayingState, PauseState, VictoryState, GameOverState
 from systems.audio_manager import AudioManager, MusicTrack, SoundEffect
-
-
 
 
 class Game:
@@ -18,8 +16,6 @@ class Game:
         self.fuente_grande = pygame.font.Font(None, 74)
         self.fuente_chica = pygame.font.Font(None, 36)
         self.fuente_mini = pygame.font.Font(None, 24)
-
-        
         
         # Configuraciones
         self.volumen = 0.5
@@ -28,14 +24,15 @@ class Game:
         # Sistema de detección de gestos
         self.gesture_detector = GestureDetector()
         self.audio = AudioManager()
-
         
-        # Registro de estados
+        # ✨ Registro de estados (ahora incluye Victory y GameOver)
         self.states = {
             "menu": MenuState(self),
             "jugando": PlayingState(self),
             "pausa": PauseState(self),
             "opciones": OptionsState(self),
+            "victoria": VictoryState(self),
+            "game_over": GameOverState(self),
         }
         self.current_state = None
         self.change_state("menu")
@@ -44,6 +41,7 @@ class Game:
         self.pantalla = pygame.display.set_mode((ancho, alto))
         
     def change_state(self, nombre):
+        """Cambia entre estados del juego"""
         if self.current_state:
             self.current_state.exit()
         self.current_state = self.states[nombre]
@@ -68,6 +66,7 @@ class Game:
         self.gesture_detector.detener_camara()
         cv2.destroyAllWindows()
         pygame.quit()
+
 
 if __name__ == "__main__":
     juego = Game()
