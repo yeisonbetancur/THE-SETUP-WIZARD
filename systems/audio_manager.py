@@ -33,11 +33,11 @@ class AudioManager:
         # Música
         self.music_tracks: Dict[MusicTrack, str] = {}
         self.current_track: Optional[MusicTrack] = None
-        self.music_volume = 0.2  # Volumen por defecto (0.0 a 1.0)
+        self.music_volume = 0.1  # Volumen por defecto (0.0 a 1.0)
         
         # Efectos de sonido
         self.sound_effects: Dict[SoundEffect, pygame.mixer.Sound] = {}
-        self.sound_volume = 0.4  # Volumen por defecto para efectos
+        self.sound_volume = 0.2  # Volumen por defecto para efectos
         
         # Estado
         self.music_enabled = True
