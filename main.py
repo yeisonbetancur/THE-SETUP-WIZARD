@@ -5,6 +5,7 @@ from states import OptionsState, MenuState, PlayingState, PauseState, VictorySta
 from systems.audio_manager import AudioManager, MusicTrack, SoundEffect
 
 
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -33,6 +34,7 @@ class Game:
             "opciones": OptionsState(self),
             "victoria": VictoryState(self),
             "game_over": GameOverState(self),
+
         }
         self.current_state = None
         self.change_state("menu")

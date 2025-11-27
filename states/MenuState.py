@@ -10,6 +10,8 @@ class MenuState(State):
         self.btn_opciones = Button(cx - 100, 350, 200, 50, "OPCIONES", self.game.fuente_chica)
         self.btn_salir = Button(cx - 100, 420, 200, 50, "SALIR", self.game.fuente_chica, (120, 50, 50), (180, 70, 70))
         self.botones = [self.btn_jugar, self.btn_opciones, self.btn_salir]
+
+
         self.game.audio.stop_music(0)
 
         try:
@@ -28,13 +30,13 @@ class MenuState(State):
         print("Saliendo del menú")
         
     def handle_events(self, eventos):
-        for e in eventos:
-            if self.btn_jugar.clicked(e):
-                self.game.change_state("jugando")
-            elif self.btn_opciones.clicked(e):
-                self.game.change_state("opciones")
-            elif self.btn_salir.clicked(e):
-                self.game.corriendo = False
+     for e in eventos:
+        if self.btn_jugar.clicked(e):
+            self.game.change_state("jugando")
+        elif self.btn_opciones.clicked(e):
+            self.game.change_state("opciones")
+        elif self.btn_salir.clicked(e):
+            self.game.corriendo = False
                 
     def update(self, dt):
         mouse_pos = pygame.mouse.get_pos()

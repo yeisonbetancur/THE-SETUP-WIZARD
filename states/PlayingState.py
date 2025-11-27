@@ -12,6 +12,7 @@ from ui.game_hud import GameHUD
 from systems.combat_system import CombatSystem
 from systems.player_controller import PlayerController
 import time
+from parallax import ParallaxLayer  
 
 
 class PlayingState(State):
@@ -21,6 +22,8 @@ class PlayingState(State):
         """Inicialización única del estado"""
         super().__init__(game)
         self._initialized = False
+
+
         
     def enter(self):
         """Llamado cada vez que se entra al estado (inicio Y resume desde pausa)"""
@@ -110,18 +113,26 @@ class PlayingState(State):
 
         # Iniciar primera oleada
         self.wave_manager.start_first_wave()
+
+
     
+   
     def _load_background(self):
-        """Carga el fondo del juego"""
-        try:
-            self.background = pygame.image.load("assets/backgrounds/game_bg.png").convert()
-            self.background = pygame.transform.scale(
-                self.background, 
-                (self.game.pantalla.get_width(), self.game.pantalla.get_height())
-            )
-        except Exception as e:
-            print(f"WARNING: No se pudo cargar background: {e}")
-            self.background = None
+        pantalla = self.game.pantalla
+
+    # Capas de fondo (parallax)
+        self.layers = [
+         ParallaxLayer("assets/backgrounds/sprite.fondo1.png", 0, pantalla),   # estática
+         ParallaxLayer("assets/backgrounds/sprite.fondo2.png", 1, pantalla),   # derecha → izquierda
+         ParallaxLayer("assets/backgrounds/sprite.fondo3.png", -1, pantalla),  # izquierda → derecha
+         ParallaxLayer("assets/backgrounds/sprite.fondo4.png", 2, pantalla),   # más rápida
+         ParallaxLayer("assets/backgrounds/sprite.fondo5.png", -2, pantalla),  # más rápida en reversa
+         ParallaxLayer("assets/backgrounds/sprite.fondo6.png", 0, pantalla),   # estática
+         ParallaxLayer("assets/backgrounds/sprite.fondo7.png", 0, pantalla),   # estática
+         ParallaxLayer("assets/backgrounds/sprite.fondo8.png", 0, pantalla),   # estática
+    ]
+
+            
     
     def _load_player_animations(self):
         """Carga todas las animaciones del jugador"""
@@ -231,6 +242,10 @@ class PlayingState(State):
                     
     def update(self, dt):
         """Actualización principal del juego"""
+        # Actualizar fondo por capas
+        for layer in self.layers:
+           layer.update()
+
         # Actualizar animaciones
         self.princess_anim.update(dt)
         self.player_controller.update(dt)
@@ -285,11 +300,10 @@ class PlayingState(State):
     
     def draw(self, pantalla):
         """Renderizado principal del juego"""
-        # Fondo
-        if self.background:
-            pantalla.blit(self.background, (0, 0))
-        else:
-            pantalla.fill((30, 40, 60))
+        # Dibujar fondo por capas
+        for layer in self.layers:
+         layer.draw()
+
 
         # Flash de daño (si existe)
         if hasattr(self, 'damage_flash_timer') and self.damage_flash_timer > 0:
